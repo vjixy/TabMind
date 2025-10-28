@@ -44,6 +44,7 @@ els.openSidePanel.addEventListener('click', async () => {
   // Open the side panel for this tab
   try {
     await chrome.sidePanel.open({ windowId: (await chrome.windows.getCurrent()).id });
+    window.close();
   } catch(e) {
     console.warn(e);
     els.progress.textContent = 'Could not open side panel.';
@@ -131,18 +132,14 @@ function renderResults(items, container) {
     return;
   }
   container.innerHTML = items.slice(0, 10).map(it => {
-    const tagHtml = (it.tags||[]).map(t => `<span class="tag">${t}</span>`).join('');
     return `<div class="card">
       <h4><a href="${it.url}" target="_blank" rel="noopener">${escapeHtml(it.title || it.url)}</a></h4>
-      <div>${tagHtml}</div>
-      <p style="margin-top:6px;">${escapeHtml(it.summary?.tldr || '')}</p>
-      <small>${new Date(it.savedAt).toLocaleString()}</small>
     </div>`;
   }).join('');
 }
 
 async function refreshRecent() {
-  const items = (await getAll()).sort((a,b) => b.savedAt - a.savedAt).slice(0, 5);
+  const items = (await getAll()).sort((a,b) => b.savedAt - a.savedAt).slice(0, 1);
   renderResults(items, els.recent);
 }
 
