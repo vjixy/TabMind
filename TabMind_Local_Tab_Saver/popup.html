@@ -24,8 +24,19 @@
 
     <div class="section">
       <h4>Quick Search</h4>
-      <input id="q" type="search" placeholder="Search by title, tag, or ask in natural language…" />
-      <div class="row" style="margin-top:8px; gap:6px;">
+      <div class="search-bar">
+        <input id="q" type="search" placeholder="Search by title, tag, or ask in natural language…" />
+        <button id="searchFilterBtn" class="icon-button ghost search-filter-btn" title="Filter search fields" aria-haspopup="true" aria-expanded="false">
+          <span class="filter-icon" aria-hidden="true"></span>
+          <span class="sr-only">Filter search fields</span>
+        </button>
+        <div id="searchFilterMenu" class="filter-menu hidden" role="menu" aria-label="Search by">
+          <label><input type="checkbox" value="title" checked /> Title</label>
+          <label><input type="checkbox" value="tags" checked /> Tags</label>
+          <label><input type="checkbox" value="description" checked /> Description</label>
+        </div>
+      </div>
+      <div class="row search-actions" style="margin-top:8px; gap:6px;">
         <button id="searchBtn">Search</button>
         <button id="openSidePanel" class="ghost">Open Side Panel</button>
       </div>

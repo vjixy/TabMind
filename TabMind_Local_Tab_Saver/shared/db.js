@@ -68,11 +68,24 @@ export function normalizeText(s) {
   return (s || '').toLowerCase();
 }
 
-export function lexicalFilter(items, query) {
+export const DEFAULT_SEARCH_FIELDS = ['title', 'description', 'tags'];
+
+export function lexicalFilter(items, query, options = {}) {
   const q = normalizeText(query);
   if (!q) return items;
+  const fields = Array.isArray(options.fields) && options.fields.length ? options.fields : DEFAULT_SEARCH_FIELDS;
   return items.filter(it => {
-    const hay = normalizeText([it.title, it.url, (it.summary?.tldr||''), (it.summary?.keyPoints||''), (it.tags||[]).join(' ')].join(' '));
+    const hayParts = [];
+    if (fields.includes('title')) {
+      hayParts.push(it.title || '', it.url || '');
+    }
+    if (fields.includes('description')) {
+      hayParts.push(it.summary?.tldr || '', it.summary?.keyPoints || '', it.note || '');
+    }
+    if (fields.includes('tags')) {
+      hayParts.push((it.tags || []).join(' '));
+    }
+    const hay = normalizeText(hayParts.join(' '));
     return q.split(/\s+/).every(tok => hay.includes(tok));
   });
 }

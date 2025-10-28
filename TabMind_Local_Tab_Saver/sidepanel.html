@@ -16,7 +16,18 @@
 
     <div class="section">
       <div class="row wrap">
-        <input id="q" type="search" placeholder="Search or ask 'show me the CSS grid article'…" />
+        <div class="search-bar">
+          <input id="q" type="search" placeholder="Search or ask 'show me the CSS grid article'…" />
+          <button id="panelSearchFilterBtn" class="icon-button ghost search-filter-btn" title="Filter search fields" aria-haspopup="true" aria-expanded="false">
+            <span class="filter-icon" aria-hidden="true"></span>
+            <span class="sr-only">Filter search fields</span>
+          </button>
+          <div id="panelSearchFilterMenu" class="filter-menu hidden" role="menu" aria-label="Search by">
+            <label><input type="checkbox" value="title" checked /> Title</label>
+            <label><input type="checkbox" value="tags" checked /> Tags</label>
+            <label><input type="checkbox" value="description" checked /> Description</label>
+          </div>
+        </div>
         <button id="searchBtn" class="primary">Search</button>
         <button id="refreshBtn" class="ghost">Refresh</button>
       </div>

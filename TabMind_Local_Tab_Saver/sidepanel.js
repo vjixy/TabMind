@@ -1,5 +1,5 @@
 
-import { getAll, lexicalFilter, updateItem } from './shared/db.js';
+import { getAll, lexicalFilter, updateItem, DEFAULT_SEARCH_FIELDS } from './shared/db.js';
 import { AI } from './shared/ai.js';
 
 const els = {
@@ -8,8 +8,14 @@ const els = {
   searchBtn: document.getElementById('searchBtn'),
   results: document.getElementById('results'),
   progress: document.getElementById('progress'),
-  refreshBtn: document.getElementById('refreshBtn')
+  refreshBtn: document.getElementById('refreshBtn'),
+  searchFilterBtn: document.getElementById('panelSearchFilterBtn'),
+  searchFilterMenu: document.getElementById('panelSearchFilterMenu')
 };
+
+const filterCheckboxes = Array.from(els.searchFilterMenu?.querySelectorAll('input[type="checkbox"]') ?? []);
+
+const debouncedSearch = debounce(() => doSearch({ skipIndicator: true }), 150);
 
 function setStatus({ prompt, summarize }) {
   const ok = (s) => s && s !== 'unavailable';
@@ -27,12 +33,19 @@ document.addEventListener('ai-download', (e) => {
 els.refreshBtn.addEventListener('click', () => doSearch());
 els.searchBtn.addEventListener('click', () => doSearch());
 els.q.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+els.q.addEventListener('input', () => debouncedSearch());
 
-async function doSearch() {
-  els.results.innerHTML = '<small>Loading…</small>';
+setupFilterControls();
+
+async function doSearch(options = {}) {
+  const { skipIndicator = false } = options;
+  if (!skipIndicator) {
+    els.results.innerHTML = '<small>Loading…</small>';
+  }
   const q = els.q.value.trim();
   const items = await getAll();
-  let candidates = lexicalFilter(items, q).slice(0, 50);
+  const fields = getSelectedFields();
+  let candidates = lexicalFilter(items, q, { fields }).slice(0, 50);
   if (q && q.split(/\s+/).length > 1 && candidates.length > 1) {
     try {
       candidates = await AI.rerank(q, candidates);
@@ -188,4 +201,64 @@ function parseTags(value='') {
   return value.split(',').map(t => t.trim()).filter(Boolean);
 }
 
-doSearch();
+function setupFilterControls() {
+  if (!els.searchFilterBtn || !els.searchFilterMenu) return;
+  const menu = els.searchFilterMenu;
+
+  const hideMenu = () => {
+    if (menu.classList.contains('hidden')) return;
+    menu.classList.add('hidden');
+    els.searchFilterBtn.setAttribute('aria-expanded', 'false');
+  };
+
+  const toggleMenu = () => {
+    const willShow = menu.classList.contains('hidden');
+    if (willShow) {
+      menu.classList.remove('hidden');
+      els.searchFilterBtn.setAttribute('aria-expanded', 'true');
+    } else {
+      hideMenu();
+    }
+  };
+
+  els.searchFilterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleMenu();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!menu.contains(e.target) && !els.searchFilterBtn.contains(e.target)) {
+      hideMenu();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hideMenu();
+  });
+
+  filterCheckboxes.forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      const active = getSelectedFields();
+      if (!active.length) {
+        checkbox.checked = true;
+        return;
+      }
+      debouncedSearch();
+    });
+  });
+}
+
+function getSelectedFields() {
+  const active = filterCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+  return active.length ? active : DEFAULT_SEARCH_FIELDS;
+}
+
+function debounce(fn, delay) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn.apply(null, args), delay);
+  };
+}
+
+doSearch({ skipIndicator: true });
