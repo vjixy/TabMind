@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TabMind</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="row" style="justify-content: space-between;">
+      <h3>TabMind</h3>
+      <span id="aiStatus" class="badge">AI: checking…</span>
+    </div>
+
+    <div class="section">
+      <div class="row">
+        <button id="initAI" class="ghost">Initialize AI</button>
+        <button id="saveTab" class="primary">Save current tab</button>
+      </div>
+      <small id="downloadNote">First‑time use downloads the on‑device model (one‑time).</small>
+      <div id="progress" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="section">
+      <h4>Quick Search</h4>
+      <input id="q" type="search" placeholder="Search by title, tag, or ask in natural language…" />
+      <div class="row" style="margin-top:8px; gap:6px;">
+        <button id="searchBtn">Search</button>
+        <button id="openSidePanel" class="ghost">Open Side Panel</button>
+      </div>
+      <div id="results" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="section">
+      <h4>Recent Saves</h4>
+      <div id="recent"></div>
+    </div>
+
+    <footer>
+      100% on‑device AI · No cloud calls
+    </footer>
+  </div>
+
+  <script type="module" src="shared/db.js"></script>
+  <script type="module" src="shared/ai.js"></script>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

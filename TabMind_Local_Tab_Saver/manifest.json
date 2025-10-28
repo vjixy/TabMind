@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "TabMind \u2014 Local Tab Saver (Built\u2011in AI)",
+  "version": "0.1.0",
+  "description": "Save tabs as rich notes with AI-generated tags and summaries. 100% on-device using Chrome built\u2011in AI (Gemini Nano).",
+  "action": {
+    "default_title": "TabMind",
+    "default_popup": "popup.html"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "minimum_chrome_version": "138"
+}
