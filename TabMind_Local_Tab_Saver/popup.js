@@ -178,7 +178,7 @@ function renderResults(items, container) {
     container.innerHTML = '<small>No matches yet.</small>';
     return;
   }
-  container.innerHTML = items.slice(0, 10).map(it => {
+  container.innerHTML = items.slice(0, 3).map(it => {
     const safeUrl = escapeHtml(it.url || '');
     const label = escapeHtml(truncate(it.title || it.url, 50));
     return `<div class="card">
