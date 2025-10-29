@@ -71,13 +71,25 @@ a { color: var(--accent); text-decoration: none; }
 .panel-icon::after { content:""; position:absolute; top:50%; right:-3px; width:0; height:0; border:5px solid transparent; border-left-color: currentColor; transform: translateY(-50%); }
 .search-bar { position: relative; display: flex; gap: 6px; align-items: center; width: 100%; }
 .search-bar input { flex: 1; }
-.search-filter-btn { flex: none; padding: 6px; }
-.filter-menu { position: absolute; top: calc(100% + 4px); right: 0; background: #0f1520; border: 1px solid #1e2a3b; border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 160px; z-index: 20; box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
-.filter-menu label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
-.filter-menu input[type="checkbox"] { accent-color: var(--accent); }
+.search-tools { display:flex; gap:6px; align-items: center; }
+.menu-wrapper { position: relative; }
+.search-filter-btn,
+.search-order-btn { flex: none; padding: 6px; }
+.filter-menu,
+.order-menu { position: absolute; top: calc(100% + 4px); right: 0; background: #0f1520; border: 1px solid #1e2a3b; border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 180px; z-index: 20; box-shadow: 0 6px 18px rgba(0,0,0,0.35); align-items: stretch; }
+.filter-menu label,
+.order-menu label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); width: 100%; }
+.filter-menu input[type="checkbox"],
+.order-menu input[type="radio"] { accent-color: var(--accent); }
 .filter-icon { position: relative; width: 16px; height: 16px; display: inline-block; }
 .filter-icon::before { content: ""; position: absolute; top: 2px; left: 2px; right: 2px; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 0; border-bottom: 7px solid currentColor; }
 .filter-icon::after { content: ""; position: absolute; bottom: 2px; left: 6px; right: 6px; height: 4px; background: currentColor; border-radius: 1px; }
+.order-icon { position: relative; width: 16px; height: 16px; display:inline-block; }
+.order-icon::before,
+.order-icon::after { content: ""; position:absolute; left:2px; right:2px; border-left:6px solid transparent; border-right:6px solid transparent; }
+.order-icon::before { top:2px; border-bottom:7px solid currentColor; }
+.order-icon::after { bottom:2px; border-top:7px solid currentColor; }
+.order-icon span { display:none; }
 .trash-icon { position: relative; width: 14px; height: 14px; display:inline-block; }
 .trash-icon::before { content:""; position:absolute; top:0; left:2px; right:2px; height:2px; background:currentColor; border-radius:1px; }
 .trash-icon::after { content:""; position:absolute; top:3px; left:3px; right:3px; bottom:1px; border:1px solid currentColor; border-radius:1px 1px 2px 2px; }

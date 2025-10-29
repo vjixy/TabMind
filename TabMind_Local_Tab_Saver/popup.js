@@ -14,12 +14,20 @@ const els = {
   openSidePanel: document.getElementById('openSidePanel'),
   searchFilterBtn: document.getElementById('searchFilterBtn'),
   searchFilterMenu: document.getElementById('searchFilterMenu'),
+  searchOrderBtn: document.getElementById('searchOrderBtn'),
+  searchOrderMenu: document.getElementById('searchOrderMenu'),
   downloadNote: document.getElementById('downloadNote'),
 };
 
 const filterCheckboxes = Array.from(els.searchFilterMenu?.querySelectorAll('input[type="checkbox"]') ?? []);
+const orderRadios = Array.from(els.searchOrderMenu?.querySelectorAll('input[type="radio"]') ?? []);
 
 const debouncedSearch = debounce(() => doSearch({ skipIndicator: true }), 150);
+
+const SEARCH_PREF_KEY = 'tabmind_popup_search_prefs';
+const ORDER_OPTIONS = ['date_desc', 'date_asc', 'rating_desc', 'rating_asc'];
+let selectedFields = [...DEFAULT_SEARCH_FIELDS];
+let selectedOrder = 'date_desc';
 
 function setStatus({ prompt, summarize }) {
   const ok = (s) => s && s !== 'unavailable';
@@ -148,10 +156,6 @@ els.saveTab.addEventListener('click', async () => {
 els.q.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
 els.q.addEventListener('input', () => debouncedSearch());
 
-setupFilterControls();
-
-updateInitSectionVisibility();
-
 async function doSearch(options = {}) {
   const { skipIndicator = false } = options;
   const q = els.q.value.trim();
@@ -170,6 +174,7 @@ async function doSearch(options = {}) {
       console.warn('Rerank failed, fallback to lexical only.', e);
     }
   }
+  candidates = orderItems(candidates);
   renderResults(candidates, els.results);
 }
 
@@ -273,9 +278,11 @@ function renderRecentItem(item) {
 }
 
 function buildRecentCardHtml(item) {
+  const safeUrl = escapeHtml(item.url || '');
+  const title = escapeHtml(truncate(item.title || item.url || 'Recent save', 60));
   return `<div class="card recent-card">
     <div class="card-header">
-      <h4 style="margin-bottom:0;">Most Recent Save</h4>
+      <h4 style="margin-bottom:0;"><a href="${safeUrl}" target="_blank" rel="noopener">${title}</a></h4>
       <button type="button" class="icon-button edit-toggle" aria-label="Edit recent item">&#9998;</button>
     </div>
     <div class="view-mode">
@@ -337,56 +344,199 @@ function parseTags(value='') {
   return value.split(',').map(t => t.trim()).filter(Boolean);
 }
 
-function setupFilterControls() {
-  if (!els.searchFilterBtn || !els.searchFilterMenu) return;
-  const menu = els.searchFilterMenu;
+function setupSearchControls() {
+  const entries = [
+    els.searchFilterBtn && els.searchFilterMenu ? { button: els.searchFilterBtn, menu: els.searchFilterMenu } : null,
+    els.searchOrderBtn && els.searchOrderMenu ? { button: els.searchOrderBtn, menu: els.searchOrderMenu } : null
+  ].filter(Boolean);
 
-  const hideMenu = () => {
-    if (menu.classList.contains('hidden')) return;
-    menu.classList.add('hidden');
-    els.searchFilterBtn.setAttribute('aria-expanded', 'false');
+  if (!entries.length) return;
+
+  const hideMenu = (entry) => {
+    if (!entry || entry.menu.classList.contains('hidden')) return;
+    entry.menu.classList.add('hidden');
+    entry.button.setAttribute('aria-expanded', 'false');
   };
 
-  const toggleMenu = () => {
-    const willShow = menu.classList.contains('hidden');
-    if (willShow) {
-      menu.classList.remove('hidden');
-      els.searchFilterBtn.setAttribute('aria-expanded', 'true');
-    } else {
-      hideMenu();
-    }
-  };
+  const hideAllMenus = () => entries.forEach(hideMenu);
 
-  els.searchFilterBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleMenu();
+  entries.forEach((entry) => {
+    entry.button.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const willShow = entry.menu.classList.contains('hidden');
+      hideAllMenus();
+      if (willShow) {
+        entry.menu.classList.remove('hidden');
+        entry.button.setAttribute('aria-expanded', 'true');
+      }
+    });
   });
 
   document.addEventListener('click', (e) => {
-    if (!menu.contains(e.target) && !els.searchFilterBtn.contains(e.target)) {
-      hideMenu();
-    }
+    if (entries.some(entry => entry.menu.contains(e.target))) return;
+    if (entries.some(entry => entry.button.contains(e.target))) return;
+    hideAllMenus();
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') hideMenu();
+    if (e.key === 'Escape') hideAllMenus();
   });
 
   filterCheckboxes.forEach((checkbox) => {
     checkbox.addEventListener('change', () => {
-      const active = getSelectedFields();
+      const active = filterCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
       if (!active.length) {
         checkbox.checked = true;
         return;
       }
+      selectedFields = normalizeFields(active);
+      persistSearchPreferences();
       debouncedSearch();
+    });
+  });
+
+  orderRadios.forEach((radio) => {
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      selectedOrder = ORDER_OPTIONS.includes(radio.value) ? radio.value : 'date_desc';
+      persistSearchPreferences();
+      hideAllMenus();
+      doSearch({ skipIndicator: true });
     });
   });
 }
 
 function getSelectedFields() {
-  const active = filterCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
-  return active.length ? active : DEFAULT_SEARCH_FIELDS;
+  return selectedFields.length ? selectedFields : [...DEFAULT_SEARCH_FIELDS];
+}
+
+function orderItems(items = []) {
+  const data = [...items];
+  switch (selectedOrder) {
+    case 'rating_desc':
+      return data.sort((a, b) => {
+        const diff = (b.rating ?? 0) - (a.rating ?? 0);
+        if (Math.abs(diff) > 1e-6) return diff;
+        return (b.savedAt || 0) - (a.savedAt || 0);
+      });
+    case 'rating_asc':
+      return data.sort((a, b) => {
+        const diff = (a.rating ?? 0) - (b.rating ?? 0);
+        if (Math.abs(diff) > 1e-6) return diff;
+        return (b.savedAt || 0) - (a.savedAt || 0);
+      });
+    case 'date_asc':
+      return data.sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
+    case 'date_desc':
+    default:
+      return data.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+  }
+}
+
+async function loadSearchPreferences() {
+  const stored = await readFromStorage(SEARCH_PREF_KEY);
+  if (Array.isArray(stored?.fields) && stored.fields.length) {
+    selectedFields = normalizeFields(stored.fields);
+  }
+  if (ORDER_OPTIONS.includes(stored?.order)) {
+    selectedOrder = stored.order;
+  }
+  applySearchPreferencesToUI();
+}
+
+function applySearchPreferencesToUI() {
+  if (filterCheckboxes.length) {
+    const fieldSet = new Set(normalizeFields(selectedFields));
+    filterCheckboxes.forEach(cb => {
+      cb.checked = fieldSet.has(cb.value);
+    });
+    if (!filterCheckboxes.some(cb => cb.checked)) {
+      selectedFields = [...DEFAULT_SEARCH_FIELDS];
+      filterCheckboxes.forEach(cb => {
+        cb.checked = selectedFields.includes(cb.value);
+      });
+    } else {
+      selectedFields = filterCheckboxes.filter(cb => cb.checked).map(cb => cb.value);
+    }
+  }
+  if (orderRadios.length) {
+    let matched = false;
+    orderRadios.forEach(radio => {
+      const shouldCheck = radio.value === selectedOrder;
+      radio.checked = shouldCheck;
+      if (shouldCheck) matched = true;
+    });
+    if (!matched) {
+      selectedOrder = 'date_desc';
+      orderRadios.forEach(radio => {
+        radio.checked = radio.value === selectedOrder;
+      });
+    }
+  }
+}
+
+function normalizeFields(fields = []) {
+  const allowed = new Set(['title', 'tags', 'description']);
+  const cleaned = fields.map(f => f.toLowerCase()).filter(f => allowed.has(f));
+  return cleaned.length ? cleaned : [...DEFAULT_SEARCH_FIELDS];
+}
+
+function persistSearchPreferences() {
+  saveSearchPreferences().catch((err) => console.warn('Failed to save search preferences', err));
+}
+
+async function saveSearchPreferences() {
+  const payload = {
+    fields: getSelectedFields(),
+    order: ORDER_OPTIONS.includes(selectedOrder) ? selectedOrder : 'date_desc'
+  };
+  await writeToStorage(SEARCH_PREF_KEY, payload);
+}
+
+async function readFromStorage(key) {
+  try {
+    if (chrome?.storage?.local?.get) {
+      const data = await chrome.storage.local.get(key);
+      if (data && typeof data[key] !== 'undefined') {
+        return data[key];
+      }
+    }
+  } catch (err) {
+    console.warn('Storage read failed', err);
+  }
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+async function writeToStorage(key, value) {
+  try {
+    if (chrome?.storage?.local?.set) {
+      await chrome.storage.local.set({ [key]: value });
+      return;
+    }
+  } catch (err) {
+    console.warn('Storage write failed', err);
+  }
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    // Ignore localStorage errors
+  }
+}
+
+initialize();
+
+async function initialize() {
+  await loadSearchPreferences();
+  setupSearchControls();
+  updateInitSectionVisibility();
+  await refreshRecent();
+  await doSearch({ skipIndicator: true });
+  persistSearchPreferences();
 }
 
 function debounce(fn, delay) {
@@ -396,9 +546,6 @@ function debounce(fn, delay) {
     t = setTimeout(() => fn.apply(null, args), delay);
   };
 }
-
-refreshRecent();
-doSearch({ skipIndicator: true });
 
 function setProgress(text='') {
   if (!els.progress) return;

@@ -36,14 +36,30 @@
       <h4>Quick Search</h4>
       <div class="search-bar">
         <input id="q" type="search" placeholder="Search by title, tag, or ask in natural language…" />
-        <button id="searchFilterBtn" class="icon-button ghost search-filter-btn" title="Filter search fields" aria-haspopup="true" aria-expanded="false">
-          <span class="filter-icon" aria-hidden="true"></span>
-          <span class="sr-only">Filter search fields</span>
-        </button>
-        <div id="searchFilterMenu" class="filter-menu hidden" role="menu" aria-label="Search by">
-          <label><input type="checkbox" value="title" checked /> Title</label>
-          <label><input type="checkbox" value="tags" checked /> Tags</label>
-          <label><input type="checkbox" value="description" checked /> Description</label>
+        <div class="search-tools">
+          <div class="menu-wrapper">
+            <button id="searchFilterBtn" class="icon-button ghost search-filter-btn" title="Filter search fields" aria-haspopup="true" aria-expanded="false">
+              <span class="filter-icon" aria-hidden="true"></span>
+              <span class="sr-only">Filter search fields</span>
+            </button>
+            <div id="searchFilterMenu" class="filter-menu hidden" role="menu" aria-label="Search by">
+              <label><input type="checkbox" value="title" checked /> Title</label>
+              <label><input type="checkbox" value="tags" checked /> Tags</label>
+              <label><input type="checkbox" value="description" checked /> Description</label>
+            </div>
+          </div>
+          <div class="menu-wrapper">
+            <button id="searchOrderBtn" class="icon-button ghost search-order-btn" title="Order results" aria-haspopup="true" aria-expanded="false">
+              <span class="order-icon" aria-hidden="true"></span>
+              <span class="sr-only">Order results</span>
+            </button>
+            <div id="searchOrderMenu" class="order-menu hidden" role="menu" aria-label="Order results">
+              <label><input type="radio" name="popupOrder" value="date_desc" checked /> Date · Newest first</label>
+              <label><input type="radio" name="popupOrder" value="date_asc" /> Date · Oldest first</label>
+              <label><input type="radio" name="popupOrder" value="rating_desc" /> Stars · High to low</label>
+              <label><input type="radio" name="popupOrder" value="rating_asc" /> Stars · Low to high</label>
+            </div>
+          </div>
         </div>
       </div>
       <div id="results" style="margin-top:8px;"></div>
