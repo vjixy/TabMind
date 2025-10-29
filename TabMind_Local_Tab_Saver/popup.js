@@ -112,40 +112,31 @@ els.saveTab.addEventListener('click', async () => {
     if (!page) throw new Error('Could not extract page content.');
 
     const aiContext = buildAIContext(page);
-    setProgress('Summarizing…');
-    let summary = { tldr: '', keyPoints: '' };
-    try {
-      summary = await summarizeWithRetries(aiContext, (limit) => {
-        setProgress(`Summarizing… (trimmed to ${(limit/1000).toFixed(0)}k chars)`);
-      });
-    } catch (err) {
-      console.warn('Summarize failed, continuing with trimmed context.', err);
-      summary = { tldr: '', keyPoints: '' };
-    }
-
-    setProgress('Extracting tags…');
-    let meta = { tags: [], intent: '', entities: [] };
-    try {
-      meta = await AI.extractTags(trimContext(aiContext, 8000));
-    } catch (err) {
-      console.warn('Tag extraction failed.', err);
-    }
-
-    const item = {
+    const baseItem = {
       url: page.url,
       title: page.title,
       savedAt: Date.now(),
-      summary,
-      tags: meta.tags || [],
-      intent: meta.intent || '',
-      entities: meta.entities || [],
+      summary: { tldr: '', keyPoints: '' },
+      tags: [],
+      intent: '',
+      entities: [],
       note: page.selection || '',
-      rating: 0
+      rating: 0,
+      enhancedAt: 0
     };
 
-    await addItem(item);
-    setProgress('Saved!');
+    setProgress('Saving tab…');
+    const savedItem = await addItem({ ...baseItem });
+    setProgress('Saved! Enhancing in background…');
     await refreshRecent();
+    setTimeout(() => {
+      if (els.progress && els.progress.textContent === 'Saved! Enhancing in background…') {
+        setProgress('');
+      }
+    }, 2000);
+    enhanceItemInBackground(savedItem, aiContext).catch((err) => {
+      console.warn('Background enhancement failed', err);
+    });
 
   } catch (e) {
     console.error(e);
@@ -275,6 +266,48 @@ function renderRecentItem(item) {
       setProgress('Error saving changes.');
     }
   });
+}
+
+async function enhanceItemInBackground(savedItem, aiContext) {
+  try {
+    let summary = { tldr: '', keyPoints: '' };
+    try {
+      summary = await summarizeWithRetries(aiContext);
+    } catch (err) {
+      console.warn('Summarize failed, continuing with trimmed context.', err);
+    }
+
+    let meta = { tags: [], intent: '', entities: [] };
+    try {
+      meta = await AI.extractTags(trimContext(aiContext, 8000));
+    } catch (err) {
+      console.warn('Tag extraction failed.', err);
+    }
+
+    const updated = {
+      ...savedItem,
+      summary,
+      tags: meta.tags || [],
+      intent: meta.intent || '',
+      entities: meta.entities || [],
+      enhancedAt: Date.now()
+    };
+
+    await updateItem(updated);
+    await refreshRecent();
+    await doSearch({ skipIndicator: true });
+
+    const currentProgress = els.progress ? els.progress.textContent : '';
+    if (currentProgress && currentProgress !== 'Saved! Enhancing in background…') return;
+    setProgress('Tab enriched.');
+    setTimeout(() => {
+      if (els.progress && els.progress.textContent === 'Tab enriched.') {
+        setProgress('');
+      }
+    }, 2000);
+  } catch (err) {
+    console.warn('Background enhancement failed', err);
+  }
 }
 
 function buildRecentCardHtml(item) {

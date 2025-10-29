@@ -30,7 +30,10 @@ export async function addItem(item) {
     const tx = db.transaction(STORE, 'readwrite');
     tx.oncomplete = () => resolve(item);
     tx.onerror = () => reject(tx.error);
-    tx.objectStore(STORE).add(item);
+    const req = tx.objectStore(STORE).add(item);
+    req.onsuccess = () => {
+      item.id = req.result;
+    };
   });
 }
 
