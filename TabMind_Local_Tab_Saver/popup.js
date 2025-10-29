@@ -100,11 +100,25 @@ els.saveTab.addEventListener('click', async () => {
     const page = res?.result;
     if (!page) throw new Error('Could not extract page content.');
 
+    const aiContext = buildAIContext(page);
     els.progress.textContent = 'Summarizing…';
-    const summary = await AI.summarize(page.text);
+    let summary = { tldr: '', keyPoints: '' };
+    try {
+      summary = await summarizeWithRetries(aiContext, (limit) => {
+        els.progress.textContent = `Summarizing… (trimmed to ${(limit/1000).toFixed(0)}k chars)`;
+      });
+    } catch (err) {
+      console.warn('Summarize failed, continuing with trimmed context.', err);
+      summary = { tldr: '', keyPoints: '' };
+    }
 
     els.progress.textContent = 'Extracting tags…';
-    const meta = await AI.extractTags(page.text);
+    let meta = { tags: [], intent: '', entities: [] };
+    try {
+      meta = await AI.extractTags(trimContext(aiContext, 8000));
+    } catch (err) {
+      console.warn('Tag extraction failed.', err);
+    }
 
     const item = {
       url: page.url,
@@ -380,3 +394,61 @@ function debounce(fn, delay) {
 
 refreshRecent();
 doSearch({ skipIndicator: true });
+
+function buildAIContext(page) {
+  const parts = [];
+  if (page.title) parts.push(sanitizeWhitespace(page.title));
+  if (page.description) parts.push(`Description:\n${sanitizeWhitespace(page.description)}`);
+  if (page.keywords) parts.push(`Keywords: ${sanitizeWhitespace(page.keywords)}`);
+  if (page.selection) parts.push(`User selection:\n${sanitizeWhitespace(page.selection)}`);
+  if (page.text) parts.push(sanitizeWhitespace(page.text));
+  return parts.join('\n\n').trim();
+}
+
+async function summarizeWithRetries(text, onTrim) {
+  const sequence = [60000, 45000, 32000, 22000, 16000, 11000, 8000, 6000];
+  const unique = [];
+  for (const limit of sequence) {
+    const len = Math.min(limit, text.length);
+    if (!unique.includes(len)) unique.push(len);
+  }
+  let lastError;
+  for (const limit of unique) {
+    const snippet = trimContext(text, limit);
+    if (snippet.length < text.length && onTrim) {
+      onTrim(limit);
+    }
+    try {
+      return await AI.summarize(snippet);
+    } catch (err) {
+      if (!isTooLargeError(err)) throw err;
+      lastError = err;
+      text = snippet;
+    }
+  }
+  if (lastError) throw lastError;
+  return await AI.summarize(trimContext(text, 6000));
+}
+
+function trimContext(text, limit) {
+  if (text.length <= limit) return text;
+  const slice = text.slice(0, limit);
+  const lastBreak = slice.lastIndexOf('\n');
+  if (lastBreak > limit * 0.6) {
+    return slice.slice(0, lastBreak);
+  }
+  return slice;
+}
+
+function sanitizeWhitespace(value='') {
+  return value
+    .replace(/\r/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function isTooLargeError(err) {
+  const msg = (err && (err.message || err.toString())) || '';
+  return /too\s+large|exceeds|length|token/i.test(msg);
+}
