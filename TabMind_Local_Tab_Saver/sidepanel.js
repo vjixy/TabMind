@@ -65,6 +65,7 @@ function renderResults(items, container) {
     if (!item) return;
 
     const editBtn = card.querySelector('.edit-toggle');
+    const ratingControl = card.querySelector('.rating-control');
     const deleteBtn = card.querySelector('.delete-item');
     const view = card.querySelector('.view-mode');
     const form = card.querySelector('.edit-mode');
@@ -90,6 +91,9 @@ function renderResults(items, container) {
       const shouldShow = form.classList.contains('hidden');
       toggleEdit(shouldShow);
     });
+    if (ratingControl) {
+      setupRatingControl(ratingControl, item);
+    }
 
     cancelBtn.addEventListener('click', () => toggleEdit(false));
 
@@ -159,7 +163,10 @@ function buildCardHtml(item) {
   const safeUrl = escapeHtml(item.url || '');
   return `<div class="card saved-card" data-id="${item.id}" style="margin-bottom:10px;">
     <div class="card-header">
-      <h4><a href="${safeUrl}" target="_blank" rel="noopener">${escapeHtml(item.title || item.url)}</a></h4>
+      <div class="card-title-group">
+        <h4><a href="${safeUrl}" target="_blank" rel="noopener">${escapeHtml(item.title || item.url)}</a></h4>
+        ${ratingControlHtml(item.rating)}
+      </div>
       <div class="card-actions">
         <button type="button" class="icon-button delete-item" aria-label="Delete">
           <span class="trash-icon" aria-hidden="true"></span>
@@ -222,6 +229,113 @@ function buildEditFormHtml(item) {
       <button type="button" class="ghost cancel-edit">Cancel</button>
     </div>
   `;
+}
+
+function setupRatingControl(control, item) {
+  if (!control) return;
+  const stars = Array.from(control.querySelectorAll('.rating-star'));
+  const applyDisplay = (value) => updateRatingDisplay(control, value);
+  applyDisplay(item.rating ?? 0);
+
+  let saving = false;
+  const saveRating = async (value) => {
+    const next = clampRating(value);
+    if (Math.abs((item.rating ?? 0) - next) < 0.001) {
+      applyDisplay(next);
+      return;
+    }
+    if (saving) return;
+    saving = true;
+    els.progress.textContent = 'Saving rating…';
+    const updated = { ...item, rating: next };
+    try {
+      await updateItem(updated);
+      Object.assign(item, updated);
+      applyDisplay(next);
+      els.progress.textContent = 'Rating saved.';
+      setTimeout(() => {
+        if (els.progress.textContent === 'Rating saved.') {
+          els.progress.textContent = '';
+        }
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to save rating', err);
+      els.progress.textContent = 'Error saving rating.';
+    } finally {
+      saving = false;
+    }
+  };
+
+  control.addEventListener('click', (event) => {
+    const star = event.target.closest('.rating-star');
+    if (!star) return;
+    const rect = star.getBoundingClientRect();
+    const usingKeyboard = event.detail === 0 || (event.clientX === 0 && event.clientY === 0);
+    const offset = event.clientX - rect.left;
+    const half = usingKeyboard ? 1 : (offset <= rect.width / 2 ? 0.5 : 1);
+    const index = Number(star.dataset.index) || 0;
+    const newRating = clampRating(index + half);
+    saveRating(newRating);
+  });
+
+  control.addEventListener('keydown', (event) => {
+    let delta = 0;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+      delta = 0.5;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+      delta = -0.5;
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      saveRating(0);
+      return;
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      saveRating(5);
+      return;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    const current = Number(control.dataset.value) || 0;
+    const newRating = clampRating(current + delta);
+    saveRating(newRating);
+  });
+}
+
+function updateRatingDisplay(control, value) {
+  const val = clampRating(typeof value === 'number' ? value : 0);
+  control.dataset.value = String(val);
+  control.setAttribute('aria-valuenow', String(val));
+  control.setAttribute('aria-valuetext', val ? `${val} out of 5` : 'Not rated');
+  control.setAttribute('title', val ? `${val.toFixed(1)} / 5` : 'Not rated');
+  const stars = Array.from(control.querySelectorAll('.rating-star'));
+  stars.forEach((star, index) => {
+    const fill = Math.max(0, Math.min(1, val - index));
+    star.classList.remove('full', 'half', 'empty');
+    if (fill >= 1) {
+      star.classList.add('full');
+    } else if (fill >= 0.5) {
+      star.classList.add('half');
+    } else {
+      star.classList.add('empty');
+    }
+    star.setAttribute('aria-pressed', fill > 0 ? 'true' : 'false');
+  });
+}
+
+function clampRating(value = 0) {
+  const rounded = Math.round(Math.max(0, Math.min(5, value)) * 2) / 2;
+  return rounded;
+}
+
+function ratingControlHtml(value = 0) {
+  const val = clampRating(typeof value === 'number' ? value : 0);
+  const stars = Array.from({ length: 5 }, (_, idx) => {
+    return `<button type="button" class="rating-star empty" data-index="${idx}" aria-label="Rate ${idx + 1} star${idx === 0 ? '' : 's'}"></button>`;
+  }).join('');
+  return `<div class="rating-control" role="slider" aria-label="Rating" aria-valuemin="0" aria-valuemax="5" aria-valuenow="${val}" tabindex="0" data-value="${val}">
+    ${stars}
+  </div>`;
 }
 
 function parseTags(value='') {

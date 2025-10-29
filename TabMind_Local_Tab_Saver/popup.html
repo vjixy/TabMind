@@ -8,15 +8,20 @@
 </head>
 <body>
   <div class="container">
-    <div class="row" style="justify-content: space-between;">
-      <h3>TabMind</h3>
-      <span id="aiStatus" class="badge">AI: checking…</span>
+    <div class="header-row">
+      <div class="header-brand">
+        <h3>TabMind</h3>
+        <span id="aiStatus" class="badge">AI: checking…</span>
+      </div>
+      <div class="header-actions">
+        <button id="saveTab" class="primary compact">Save current tab</button>
+        <button id="openSidePanel" class="ghost compact">Open Side Panel</button>
+      </div>
     </div>
 
     <div class="section">
-      <div class="row">
+      <div class="init-row">
         <button id="initAI" class="ghost">Initialize AI</button>
-        <button id="saveTab" class="primary">Save current tab</button>
       </div>
       <small id="downloadNote">First‑time use downloads the on‑device model (one‑time).</small>
       <div id="progress" style="margin-top:8px;"></div>
@@ -35,9 +40,6 @@
           <label><input type="checkbox" value="tags" checked /> Tags</label>
           <label><input type="checkbox" value="description" checked /> Description</label>
         </div>
-      </div>
-      <div class="row search-actions" style="margin-top:8px; gap:6px; justify-content:flex-end;">
-        <button id="openSidePanel" class="ghost">Open Side Panel</button>
       </div>
       <div id="results" style="margin-top:8px;"></div>
     </div>

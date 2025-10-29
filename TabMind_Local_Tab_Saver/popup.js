@@ -13,6 +13,7 @@ const els = {
   openSidePanel: document.getElementById('openSidePanel'),
   searchFilterBtn: document.getElementById('searchFilterBtn'),
   searchFilterMenu: document.getElementById('searchFilterMenu'),
+  downloadNote: document.getElementById('downloadNote'),
 };
 
 const filterCheckboxes = Array.from(els.searchFilterMenu?.querySelectorAll('input[type="checkbox"]') ?? []);
@@ -27,6 +28,9 @@ function setStatus({ prompt, summarize }) {
   if (els.initAI) {
     els.initAI.classList.toggle('hidden', ready);
     els.initAI.disabled = ready;
+  }
+  if (els.downloadNote) {
+    els.downloadNote.classList.toggle('hidden', ready);
   }
 }
 
@@ -48,6 +52,9 @@ els.initAI.addEventListener('click', async () => {
     if (els.initAI) {
       els.initAI.classList.add('hidden');
       els.initAI.disabled = true;
+    }
+    if (els.downloadNote) {
+      els.downloadNote.classList.add('hidden');
     }
   } catch (e) {
     els.progress.textContent = 'Error: ' + e.message;
@@ -107,7 +114,8 @@ els.saveTab.addEventListener('click', async () => {
       tags: meta.tags || [],
       intent: meta.intent || '',
       entities: meta.entities || [],
-      note: page.selection || ''
+      note: page.selection || '',
+      rating: 0
     };
 
     await addItem(item);
