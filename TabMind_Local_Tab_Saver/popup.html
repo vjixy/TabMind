@@ -9,22 +9,22 @@
 <body>
   <div class="container">
     <div class="header-row">
+      <div class="header-main">
+        <div class="title-row">
+          <div class="title-stack">
+            <h3>TabMind</h3>
+            <span id="aiStatus" class="badge">AI: checking…</span>
+          </div>
+          <button id="saveTab" class="primary compact">Save current tab</button>
+        </div>
+      </div>
       <button id="openSidePanel" class="icon-button panel-launcher" title="Open Side Panel">
         <span class="panel-icon" aria-hidden="true"></span>
         <span class="sr-only">Open Side Panel</span>
       </button>
-      <div class="header-main">
-        <div class="title-row">
-          <h3>TabMind</h3>
-          <button id="saveTab" class="primary compact">Save current tab</button>
-        </div>
-        <div class="status-row">
-          <span id="aiStatus" class="badge">AI: checking…</span>
-        </div>
-      </div>
     </div>
 
-    <div class="section">
+    <div class="section" id="initSection">
       <div class="init-row">
         <button id="initAI" class="ghost">Initialize AI</button>
       </div>

@@ -7,6 +7,7 @@ const els = {
   initAI: document.getElementById('initAI'),
   saveTab: document.getElementById('saveTab'),
   progress: document.getElementById('progress'),
+  initSection: document.getElementById('initSection'),
   q: document.getElementById('q'),
   results: document.getElementById('results'),
   recent: document.getElementById('recent'),
@@ -25,6 +26,7 @@ function setStatus({ prompt, summarize }) {
   const ready = ok(prompt) || ok(summarize);
   els.aiStatus.textContent = `AI: ${ready ? 'ready' : 'needs setup'}`;
   els.aiStatus.className = 'badge ' + (ready ? 'ok' : 'warn');
+  els.aiStatus.classList.toggle('hidden', ready);
   if (els.initAI) {
     els.initAI.classList.toggle('hidden', ready);
     els.initAI.disabled = ready;
@@ -32,6 +34,7 @@ function setStatus({ prompt, summarize }) {
   if (els.downloadNote) {
     els.downloadNote.classList.toggle('hidden', ready);
   }
+  updateInitSectionVisibility();
 }
 
 AI.onChange(setStatus);
@@ -39,16 +42,16 @@ AI.checkAvailability();
 
 document.addEventListener('ai-download', (e) => {
   const { type, progress } = e.detail;
-  els.progress.textContent = `${type} model download: ${Math.round(progress*100)}%`;
+  setProgress(`${type} model download: ${Math.round(progress*100)}%`);
 });
 
 els.initAI.addEventListener('click', async () => {
-  els.progress.textContent = 'Initializing models…';
+  setProgress('Initializing models…');
   try {
     // User activation ensures download is permitted.
     await AI.ensureSummarizers();
     await AI.ensurePromptSession();
-    els.progress.textContent = 'Models ready.';
+    setProgress('Models ready.');
     if (els.initAI) {
       els.initAI.classList.add('hidden');
       els.initAI.disabled = true;
@@ -57,7 +60,7 @@ els.initAI.addEventListener('click', async () => {
       els.downloadNote.classList.add('hidden');
     }
   } catch (e) {
-    els.progress.textContent = 'Error: ' + e.message;
+    setProgress('Error: ' + e.message);
   }
 });
 
@@ -68,12 +71,12 @@ els.openSidePanel.addEventListener('click', async () => {
     window.close();
   } catch(e) {
     console.warn(e);
-    els.progress.textContent = 'Could not open side panel.';
+    setProgress('Could not open side panel.');
   }
 });
 
 els.saveTab.addEventListener('click', async () => {
-  els.progress.textContent = 'Reading tab…';
+  setProgress('Reading tab…');
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) throw new Error('No active tab.');
@@ -101,18 +104,18 @@ els.saveTab.addEventListener('click', async () => {
     if (!page) throw new Error('Could not extract page content.');
 
     const aiContext = buildAIContext(page);
-    els.progress.textContent = 'Summarizing…';
+    setProgress('Summarizing…');
     let summary = { tldr: '', keyPoints: '' };
     try {
       summary = await summarizeWithRetries(aiContext, (limit) => {
-        els.progress.textContent = `Summarizing… (trimmed to ${(limit/1000).toFixed(0)}k chars)`;
+        setProgress(`Summarizing… (trimmed to ${(limit/1000).toFixed(0)}k chars)`);
       });
     } catch (err) {
       console.warn('Summarize failed, continuing with trimmed context.', err);
       summary = { tldr: '', keyPoints: '' };
     }
 
-    els.progress.textContent = 'Extracting tags…';
+    setProgress('Extracting tags…');
     let meta = { tags: [], intent: '', entities: [] };
     try {
       meta = await AI.extractTags(trimContext(aiContext, 8000));
@@ -133,12 +136,12 @@ els.saveTab.addEventListener('click', async () => {
     };
 
     await addItem(item);
-    els.progress.textContent = 'Saved!';
+    setProgress('Saved!');
     await refreshRecent();
 
   } catch (e) {
     console.error(e);
-    els.progress.textContent = 'Error: ' + e.message;
+    setProgress('Error: ' + e.message);
   }
 });
 
@@ -146,6 +149,8 @@ els.q.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); })
 els.q.addEventListener('input', () => debouncedSearch());
 
 setupFilterControls();
+
+updateInitSectionVisibility();
 
 async function doSearch(options = {}) {
   const { skipIndicator = false } = options;
@@ -175,7 +180,7 @@ function renderResults(items, container) {
   }
   container.innerHTML = items.slice(0, 10).map(it => {
     const safeUrl = escapeHtml(it.url || '');
-    const label = escapeHtml(it.title || it.url);
+    const label = escapeHtml(truncate(it.title || it.url, 50));
     return `<div class="card">
       <h4><a href="${safeUrl}" target="_blank" rel="noopener">${label}</a></h4>
     </div>`;
@@ -250,19 +255,19 @@ function renderRecentItem(item) {
     };
 
     try {
-      els.progress.textContent = 'Saving changes…';
+      setProgress('Saving changes…');
       await updateItem(updated);
-      els.progress.textContent = 'Recent item updated.';
+      setProgress('Recent item updated.');
       renderRecentItem(updated);
       doSearch({ skipIndicator: true });
       setTimeout(() => {
-        if (els.progress.textContent === 'Recent item updated.') {
-          els.progress.textContent = '';
+        if (els.progress && els.progress.textContent === 'Recent item updated.') {
+          setProgress('');
         }
       }, 2000);
     } catch (err) {
       console.error('Failed to update item', err);
-      els.progress.textContent = 'Error saving changes.';
+      setProgress('Error saving changes.');
     }
   });
 }
@@ -395,6 +400,22 @@ function debounce(fn, delay) {
 refreshRecent();
 doSearch({ skipIndicator: true });
 
+function setProgress(text='') {
+  if (!els.progress) return;
+  els.progress.textContent = text || '';
+  updateInitSectionVisibility();
+}
+
+function updateInitSectionVisibility() {
+  const section = els.initSection;
+  if (!section) return;
+  const showInit = els.initAI && !els.initAI.classList.contains('hidden');
+  const showNote = els.downloadNote && !els.downloadNote.classList.contains('hidden');
+  const showProgress = !!(els.progress && els.progress.textContent.trim());
+  const shouldShow = showInit || showNote || showProgress;
+  section.classList.toggle('hidden', !shouldShow);
+}
+
 function buildAIContext(page) {
   const parts = [];
   if (page.title) parts.push(sanitizeWhitespace(page.title));
@@ -451,4 +472,9 @@ function sanitizeWhitespace(value='') {
 function isTooLargeError(err) {
   const msg = (err && (err.message || err.toString())) || '';
   return /too\s+large|exceeds|length|token/i.test(msg);
+}
+
+function truncate(str = '', max = 50) {
+  if (str.length <= max) return str;
+  return str.slice(0, max).trimEnd() + '...';
 }
