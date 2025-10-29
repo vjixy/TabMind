@@ -1,5 +1,5 @@
 
-import { openDB, addItem, getAll, lexicalFilter, DEFAULT_SEARCH_FIELDS } from './shared/db.js';
+import { addItem, getAll, lexicalFilter, DEFAULT_SEARCH_FIELDS, updateItem } from './shared/db.js';
 import { AI } from './shared/ai.js';
 
 const els = {
@@ -8,7 +8,6 @@ const els = {
   saveTab: document.getElementById('saveTab'),
   progress: document.getElementById('progress'),
   q: document.getElementById('q'),
-  searchBtn: document.getElementById('searchBtn'),
   results: document.getElementById('results'),
   recent: document.getElementById('recent'),
   openSidePanel: document.getElementById('openSidePanel'),
@@ -22,8 +21,13 @@ const debouncedSearch = debounce(() => doSearch({ skipIndicator: true }), 150);
 
 function setStatus({ prompt, summarize }) {
   const ok = (s) => s && s !== 'unavailable';
-  els.aiStatus.textContent = `AI: ${ok(prompt)||ok(summarize) ? 'ready' : 'needs setup'}`;
-  els.aiStatus.className = 'badge ' + (ok(prompt)||ok(summarize) ? 'ok' : 'warn');
+  const ready = ok(prompt) || ok(summarize);
+  els.aiStatus.textContent = `AI: ${ready ? 'ready' : 'needs setup'}`;
+  els.aiStatus.className = 'badge ' + (ready ? 'ok' : 'warn');
+  if (els.initAI) {
+    els.initAI.classList.toggle('hidden', ready);
+    els.initAI.disabled = ready;
+  }
 }
 
 AI.onChange(setStatus);
@@ -41,6 +45,10 @@ els.initAI.addEventListener('click', async () => {
     await AI.ensureSummarizers();
     await AI.ensurePromptSession();
     els.progress.textContent = 'Models ready.';
+    if (els.initAI) {
+      els.initAI.classList.add('hidden');
+      els.initAI.disabled = true;
+    }
   } catch (e) {
     els.progress.textContent = 'Error: ' + e.message;
   }
@@ -112,7 +120,6 @@ els.saveTab.addEventListener('click', async () => {
   }
 });
 
-els.searchBtn.addEventListener('click', doSearch);
 els.q.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
 els.q.addEventListener('input', () => debouncedSearch());
 
@@ -145,19 +152,162 @@ function renderResults(items, container) {
     return;
   }
   container.innerHTML = items.slice(0, 10).map(it => {
+    const safeUrl = escapeHtml(it.url || '');
+    const label = escapeHtml(it.title || it.url);
     return `<div class="card">
-      <h4><a href="${it.url}" target="_blank" rel="noopener">${escapeHtml(it.title || it.url)}</a></h4>
+      <h4><a href="${safeUrl}" target="_blank" rel="noopener">${label}</a></h4>
     </div>`;
   }).join('');
 }
 
 async function refreshRecent() {
   const items = (await getAll()).sort((a,b) => b.savedAt - a.savedAt).slice(0, 1);
-  renderResults(items, els.recent);
+  if (items.length) {
+    renderRecentItem(items[0]);
+  } else {
+    renderRecentItem(null);
+  }
 }
 
 function escapeHtml(s='') {
   return s.replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+
+function renderRecentItem(item) {
+  if (!item) {
+    els.recent.innerHTML = '<small>No saves yet.</small>';
+    return;
+  }
+
+  els.recent.innerHTML = buildRecentCardHtml(item);
+  const card = els.recent.querySelector('.recent-card');
+  if (!card) return;
+
+  const editBtn = card.querySelector('.edit-toggle');
+  const view = card.querySelector('.view-mode');
+  const form = card.querySelector('.edit-mode');
+  const cancelBtn = card.querySelector('.cancel-edit');
+  const tagsInput = form.querySelector('.edit-tags');
+  const descInput = form.querySelector('.edit-description');
+  const keypointsInput = form.querySelector('.edit-keypoints');
+
+  const resetForm = () => {
+    tagsInput.value = (item.tags || []).join(', ');
+    descInput.value = item.summary?.tldr || '';
+    keypointsInput.value = item.summary?.keyPoints || '';
+  };
+
+  const toggleEdit = (show) => {
+    view.classList.toggle('hidden', show);
+    form.classList.toggle('hidden', !show);
+    card.classList.toggle('editing', show);
+    if (show) resetForm();
+  };
+
+  editBtn.addEventListener('click', () => {
+    const shouldShow = form.classList.contains('hidden');
+    toggleEdit(shouldShow);
+  });
+
+  cancelBtn.addEventListener('click', () => toggleEdit(false));
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const newTags = parseTags(tagsInput.value);
+    const newDesc = descInput.value.trim();
+    const newKeyPoints = keypointsInput.value;
+
+    const updated = {
+      ...item,
+      tags: newTags,
+      summary: {
+        ...(item.summary || {}),
+        tldr: newDesc,
+        keyPoints: newKeyPoints
+      }
+    };
+
+    try {
+      els.progress.textContent = 'Saving changes…';
+      await updateItem(updated);
+      els.progress.textContent = 'Recent item updated.';
+      renderRecentItem(updated);
+      doSearch({ skipIndicator: true });
+      setTimeout(() => {
+        if (els.progress.textContent === 'Recent item updated.') {
+          els.progress.textContent = '';
+        }
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to update item', err);
+      els.progress.textContent = 'Error saving changes.';
+    }
+  });
+}
+
+function buildRecentCardHtml(item) {
+  return `<div class="card recent-card">
+    <div class="card-header">
+      <h4 style="margin-bottom:0;">Most Recent Save</h4>
+      <button type="button" class="icon-button edit-toggle" aria-label="Edit recent item">&#9998;</button>
+    </div>
+    <div class="view-mode">
+      ${buildRecentViewHtml(item)}
+    </div>
+    <form class="edit-mode hidden">
+      ${buildRecentEditFormHtml(item)}
+    </form>
+  </div>`;
+}
+
+function buildRecentViewHtml(item) {
+  const tags = (item.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+  const summary = (item.summary?.tldr || '').trim();
+  const keyPoints = (item.summary?.keyPoints || '').trim();
+
+  const tagsSection = tags
+    ? `<div style="margin-bottom:6px;">${tags}</div>`
+    : '<div><small>No tags yet.</small></div>';
+  const summarySection = summary
+    ? `<div style="margin-top:6px;"><p style="margin:0;">${escapeHtml(summary)}</p></div>`
+    : '<div style="margin-top:6px;"><small>No description yet.</small></div>';
+  const keyPointsSection = keyPoints
+    ? `<details style="margin-top:6px;">
+        <summary>Key points</summary>
+        <div style="margin-top:6px;"><pre>${escapeHtml(keyPoints)}</pre></div>
+      </details>`
+    : '<div style="margin-top:6px;"><small>No key points yet.</small></div>';
+
+  return `${tagsSection}${summarySection}${keyPointsSection}`;
+}
+
+function buildRecentEditFormHtml(item) {
+  const tagValue = escapeHtml((item.tags || []).join(', '));
+  const descValue = escapeHtml(item.summary?.tldr || '');
+  const keyPointsValue = escapeHtml(item.summary?.keyPoints || '');
+
+  return `
+    <label class="field-label">
+      <span>Tags (comma separated)</span>
+      <input type="text" class="edit-tags" value="${tagValue}" />
+    </label>
+    <label class="field-label">
+      <span>Description</span>
+      <textarea class="edit-description" rows="3">${descValue}</textarea>
+    </label>
+    <label class="field-label">
+      <span>Key points</span>
+      <textarea class="edit-keypoints" rows="4">${keyPointsValue}</textarea>
+    </label>
+    <div class="row form-actions">
+      <button type="submit" class="primary save-edit">Save</button>
+      <button type="button" class="ghost cancel-edit">Cancel</button>
+    </div>
+  `;
+}
+
+function parseTags(value='') {
+  return value.split(',').map(t => t.trim()).filter(Boolean);
 }
 
 function setupFilterControls() {

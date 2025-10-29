@@ -1,14 +1,12 @@
 
-import { getAll, lexicalFilter, updateItem, DEFAULT_SEARCH_FIELDS } from './shared/db.js';
+import { getAll, lexicalFilter, updateItem, DEFAULT_SEARCH_FIELDS, removeItem } from './shared/db.js';
 import { AI } from './shared/ai.js';
 
 const els = {
   aiStatus: document.getElementById('aiStatus'),
   q: document.getElementById('q'),
-  searchBtn: document.getElementById('searchBtn'),
   results: document.getElementById('results'),
   progress: document.getElementById('progress'),
-  refreshBtn: document.getElementById('refreshBtn'),
   searchFilterBtn: document.getElementById('panelSearchFilterBtn'),
   searchFilterMenu: document.getElementById('panelSearchFilterMenu')
 };
@@ -30,8 +28,6 @@ document.addEventListener('ai-download', (e) => {
   els.progress.textContent = `${type} model download: ${Math.round(progress*100)}%`;
 });
 
-els.refreshBtn.addEventListener('click', () => doSearch());
-els.searchBtn.addEventListener('click', () => doSearch());
 els.q.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
 els.q.addEventListener('input', () => debouncedSearch());
 
@@ -69,6 +65,7 @@ function renderResults(items, container) {
     if (!item) return;
 
     const editBtn = card.querySelector('.edit-toggle');
+    const deleteBtn = card.querySelector('.delete-item');
     const view = card.querySelector('.view-mode');
     const form = card.querySelector('.edit-mode');
     const cancelBtn = card.querySelector('.cancel-edit');
@@ -129,6 +126,28 @@ function renderResults(items, container) {
         els.progress.textContent = 'Error saving changes.';
       }
     });
+
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (typeof item.id === 'undefined') return;
+        els.progress.textContent = 'Deleting…';
+        try {
+          await removeItem(item.id);
+          card.remove();
+          els.progress.textContent = 'Item deleted.';
+          await doSearch({ skipIndicator: true });
+          setTimeout(() => {
+            if (els.progress.textContent === 'Item deleted.') {
+              els.progress.textContent = '';
+            }
+          }, 2000);
+        } catch (err) {
+          console.error('Failed to delete item', err);
+          els.progress.textContent = 'Error deleting item.';
+        }
+      });
+    }
   });
 }
 
@@ -141,7 +160,15 @@ function buildCardHtml(item) {
   return `<div class="card saved-card" data-id="${item.id}" style="margin-bottom:10px;">
     <div class="card-header">
       <h4><a href="${safeUrl}" target="_blank" rel="noopener">${escapeHtml(item.title || item.url)}</a></h4>
-      <button type="button" class="icon-button edit-toggle" aria-label="Edit">&#9998;</button>
+      <div class="card-actions">
+        <button type="button" class="icon-button delete-item" aria-label="Delete">
+          <span class="trash-icon" aria-hidden="true"></span>
+          <span class="sr-only">Delete</span>
+        </button>
+        <button type="button" class="icon-button edit-toggle" aria-label="Edit">
+          &#9998;
+        </button>
+      </div>
     </div>
     <div class="view-mode">
       ${buildViewHtml(item)}

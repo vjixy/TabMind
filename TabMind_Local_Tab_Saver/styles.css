@@ -43,6 +43,7 @@ a { color: var(--accent); text-decoration: none; }
 .card p { margin: 0; color: #b8c7d8; }
 .card-header { display:flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .card-header h4 { flex: 1; }
+.card-actions { display:flex; gap:4px; }
 .icon-button { background: transparent; border: 1px solid transparent; color: var(--muted); cursor: pointer; padding: 4px 6px; border-radius: 8px; font-size: 14px; line-height: 1; }
 .icon-button:hover { color: var(--accent); background: var(--chip); border-color: var(--chip-border); }
 .card.editing .icon-button { color: var(--accent); background: var(--chip); border-color: var(--chip-border); }
@@ -61,6 +62,9 @@ a { color: var(--accent); text-decoration: none; }
 .filter-icon { position: relative; width: 16px; height: 16px; display: inline-block; }
 .filter-icon::before { content: ""; position: absolute; top: 2px; left: 2px; right: 2px; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 0; border-bottom: 7px solid currentColor; }
 .filter-icon::after { content: ""; position: absolute; bottom: 2px; left: 6px; right: 6px; height: 4px; background: currentColor; border-radius: 1px; }
+.trash-icon { position: relative; width: 14px; height: 14px; display:inline-block; }
+.trash-icon::before { content:""; position:absolute; top:0; left:2px; right:2px; height:2px; background:currentColor; border-radius:1px; }
+.trash-icon::after { content:""; position:absolute; top:3px; left:3px; right:3px; bottom:1px; border:1px solid currentColor; border-radius:1px 1px 2px 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
 hr { border: none; border-top: 1px solid #1a2638; margin: 12px 0; }
 input[type="search"] { width: 100%; }
