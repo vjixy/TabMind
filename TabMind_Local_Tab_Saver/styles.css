@@ -78,9 +78,9 @@ a { color: var(--accent); text-decoration: none; }
 .filter-menu,
 .order-menu { position: absolute; top: calc(100% + 4px); right: 0; background: #0f1520; border: 1px solid #1e2a3b; border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 180px; z-index: 20; box-shadow: 0 6px 18px rgba(0,0,0,0.35); align-items: stretch; }
 .filter-menu label,
-.order-menu label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); width: 100%; }
+.order-menu label { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; font-size: 13px; color: var(--text); width: 100%; }
 .filter-menu input[type="checkbox"],
-.order-menu input[type="radio"] { accent-color: var(--accent); }
+.order-menu input[type="radio"] { accent-color: var(--accent); justify-self: start; }
 .filter-icon { position: relative; width: 16px; height: 16px; display: inline-block; }
 .filter-icon::before { content: ""; position: absolute; top: 2px; left: 2px; right: 2px; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 0; border-bottom: 7px solid currentColor; }
 .filter-icon::after { content: ""; position: absolute; bottom: 2px; left: 6px; right: 6px; height: 4px; background: currentColor; border-radius: 1px; }
