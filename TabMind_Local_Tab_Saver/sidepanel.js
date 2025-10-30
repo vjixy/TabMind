@@ -5,6 +5,7 @@ import { captureActiveTabContent, buildAIContext, enrichSavedItem } from './shar
 
 const els = {
   saveTab: document.getElementById('panelSaveTab'),
+  exportBtn: document.getElementById('panelExport'),
   q: document.getElementById('q'),
   results: document.getElementById('results'),
   progress: document.getElementById('progress'),
@@ -23,6 +24,7 @@ const SEARCH_PREF_KEY = 'tabmind_side_search_prefs';
 const ORDER_OPTIONS = ['date_desc', 'date_asc', 'rating_desc', 'rating_asc'];
 let selectedFields = [...DEFAULT_SEARCH_FIELDS];
 let selectedOrder = 'date_desc';
+let lastSearchResults = [];
 
 function setStatus({ prompt, summarize }) {
 }
@@ -85,6 +87,43 @@ if (els.saveTab) {
   });
 }
 
+if (els.exportBtn) {
+  els.exportBtn.addEventListener('click', () => {
+    if (!lastSearchResults.length) {
+      const message = 'No results to export.';
+      setPanelProgress(message);
+      setTimeout(() => {
+        if (els.progress && els.progress.textContent === message) {
+          setPanelProgress('');
+        }
+      }, 2000);
+      return;
+    }
+
+    try {
+      const markdown = buildExportMarkdown(lastSearchResults);
+      const filename = buildExportFilename();
+      triggerMarkdownDownload(markdown, filename);
+      const message = `Exported ${lastSearchResults.length} item${lastSearchResults.length === 1 ? '' : 's'}.`;
+      setPanelProgress(message);
+      setTimeout(() => {
+        if (els.progress && els.progress.textContent === message) {
+          setPanelProgress('');
+        }
+      }, 2000);
+    } catch (err) {
+      console.error('Export failed', err);
+      const message = 'Error exporting results.';
+      setPanelProgress(message);
+      setTimeout(() => {
+        if (els.progress && els.progress.textContent === message) {
+          setPanelProgress('');
+        }
+      }, 2000);
+    }
+  });
+}
+
 els.q.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
 els.q.addEventListener('input', () => debouncedSearch());
 
@@ -105,6 +144,7 @@ async function doSearch(options = {}) {
     }
   }
   candidates = orderItems(candidates);
+  lastSearchResults = [...candidates];
   renderResults(candidates, els.results);
 }
 
@@ -214,6 +254,66 @@ function renderResults(items, container) {
 function setPanelProgress(text = '') {
   if (!els.progress) return;
   els.progress.textContent = text;
+}
+
+function buildExportMarkdown(items = []) {
+  const sections = items.map((item, index) => {
+    const title = sanitizeHeading(item?.title || item?.url || `Item ${index + 1}`);
+    const rating = typeof item?.rating === 'number' ? String(item.rating) : '0';
+    const tags = formatTags(item?.tags);
+    const summary = sanitizeBlock(item?.summary?.tldr, 'None');
+    const keyPoints = sanitizeBlock(item?.summary?.keyPoints, 'None');
+    return [
+      `## ${title}`,
+      '### Rating',
+      rating,
+      '### Tags',
+      tags,
+      '### Summary',
+      summary,
+      '### Keypoints',
+      keyPoints,
+      ''
+    ].join('\n');
+  });
+  const body = sections.join('\n').trim();
+  return body ? body + '\n' : '';
+}
+
+function buildExportFilename() {
+  const iso = new Date().toISOString().replace(/[:.]/g, '-');
+  return `tabmind-export-${iso}.md`;
+}
+
+function sanitizeHeading(value = '') {
+  const cleaned = String(value).replace(/\r/g, '').replace(/\n+/g, ' ').trim();
+  if (!cleaned) return 'Untitled';
+  return cleaned.replace(/^#+\s*/, '').trim() || 'Untitled';
+}
+
+function sanitizeBlock(value, fallback = 'None') {
+  if (value === undefined || value === null) return fallback;
+  const cleaned = String(value).replace(/\r/g, '').trim();
+  return cleaned || fallback;
+}
+
+function formatTags(tags) {
+  if (!Array.isArray(tags) || !tags.length) return 'None';
+  const cleaned = tags.map((tag) => String(tag || '').trim()).filter(Boolean);
+  return cleaned.length ? cleaned.join(', ') : 'None';
+}
+
+function triggerMarkdownDownload(content, filename) {
+  const blob = new Blob([content], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function escapeHtml(s='') {
