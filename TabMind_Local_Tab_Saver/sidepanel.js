@@ -1,9 +1,10 @@
 
-import { getAll, lexicalFilter, updateItem, DEFAULT_SEARCH_FIELDS, removeItem } from './shared/db.js';
+import { addItem, getAll, lexicalFilter, updateItem, DEFAULT_SEARCH_FIELDS, removeItem } from './shared/db.js';
 import { AI } from './shared/ai.js';
+import { captureActiveTabContent, buildAIContext, enrichSavedItem } from './shared/tabActions.js';
 
 const els = {
-  aiStatus: document.getElementById('aiStatus'),
+  saveTab: document.getElementById('panelSaveTab'),
   q: document.getElementById('q'),
   results: document.getElementById('results'),
   progress: document.getElementById('progress'),
@@ -24,9 +25,6 @@ let selectedFields = [...DEFAULT_SEARCH_FIELDS];
 let selectedOrder = 'date_desc';
 
 function setStatus({ prompt, summarize }) {
-  const ok = (s) => s && s !== 'unavailable';
-  els.aiStatus.textContent = `AI: ${ok(prompt)||ok(summarize) ? 'ready' : 'needs setup'}`;
-  els.aiStatus.className = 'badge ' + (ok(prompt)||ok(summarize) ? 'ok' : 'warn');
 }
 AI.onChange(setStatus);
 AI.checkAvailability();
@@ -35,6 +33,57 @@ document.addEventListener('ai-download', (e) => {
   const { type, progress } = e.detail;
   els.progress.textContent = `${type} model download: ${Math.round(progress*100)}%`;
 });
+
+if (els.saveTab) {
+  els.saveTab.addEventListener('click', async () => {
+    setPanelProgress('Reading tab…');
+    try {
+      const page = await captureActiveTabContent();
+      const aiContext = buildAIContext(page);
+      const baseItem = {
+        url: page.url,
+        title: page.title,
+        savedAt: Date.now(),
+        summary: { tldr: '', keyPoints: '' },
+        tags: [],
+        intent: '',
+        entities: [],
+        note: page.selection || '',
+        rating: 0,
+        enhancedAt: 0
+      };
+
+      setPanelProgress('Saving tab…');
+      const savedItem = await addItem({ ...baseItem });
+      setPanelProgress('Saved! Enhancing in background…');
+      await doSearch({ skipIndicator: true });
+      setTimeout(() => {
+        if (els.progress && els.progress.textContent === 'Saved! Enhancing in background…') {
+          setPanelProgress('');
+        }
+      }, 2000);
+
+      enrichSavedItem(savedItem, aiContext)
+        .then(async () => {
+          await doSearch({ skipIndicator: true });
+          const current = els.progress ? els.progress.textContent : '';
+          if (current && current !== 'Saved! Enhancing in background…') return;
+          setPanelProgress('Tab enriched.');
+          setTimeout(() => {
+            if (els.progress && els.progress.textContent === 'Tab enriched.') {
+              setPanelProgress('');
+            }
+          }, 2000);
+        })
+        .catch((err) => {
+          console.warn('Background enhancement failed', err);
+        });
+    } catch (err) {
+      console.error(err);
+      setPanelProgress('Error: ' + err.message);
+    }
+  });
+}
 
 els.q.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
 els.q.addEventListener('input', () => debouncedSearch());
@@ -160,6 +209,11 @@ function renderResults(items, container) {
       });
     }
   });
+}
+
+function setPanelProgress(text = '') {
+  if (!els.progress) return;
+  els.progress.textContent = text;
 }
 
 function escapeHtml(s='') {
