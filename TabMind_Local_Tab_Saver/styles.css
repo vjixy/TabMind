@@ -93,9 +93,9 @@ a { color: var(--accent); text-decoration: none; }
 .trash-icon { position: relative; width: 14px; height: 14px; display:inline-block; }
 .trash-icon::before { content:""; position:absolute; top:0; left:2px; right:2px; height:2px; background:currentColor; border-radius:1px; }
 .trash-icon::after { content:""; position:absolute; top:3px; left:3px; right:3px; bottom:1px; border:1px solid currentColor; border-radius:1px 1px 2px 2px; }
-.download-icon { position: relative; width: 16px; height: 16px; display:inline-block; }
-.download-icon::before { content:""; position:absolute; top:1px; left:7px; width:2px; height:9px; background:currentColor; border-radius:1px; }
-.download-icon::after { content:""; position:absolute; bottom:1px; left:4px; width:8px; height:8px; border-left:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(-45deg); }
+.download-icon { position: relative; width: 16px; height: 16px; display:inline-block; background: linear-gradient(currentColor, currentColor) center 2px / 2px 7px no-repeat; }
+.download-icon::before { content:""; position:absolute; top:7px; left:4px; width:0; height:0; border-left:4px solid transparent; border-right:4px solid transparent; border-top:5px solid currentColor; }
+.download-icon::after { content:""; position:absolute; bottom:0; left:3px; width:10px; height:5px; border:2px solid currentColor; border-top:none; border-radius:0 0 4px 4px; }
 .rating-control { display:inline-flex; align-items:center; gap: 2px; }
 .rating-star { position: relative; width: 20px; height: 20px; border: none; background: transparent; padding: 0; margin: 0; cursor: pointer; }
 .rating-star::before { content: '☆'; font-size: 18px; color: var(--muted); position: absolute; inset: 0; display:flex; align-items:center; justify-content:center; }

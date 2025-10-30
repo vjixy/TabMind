@@ -1,0 +1,23 @@
+graph TD
+  A[Open Popup] --> B{Initialize AI}
+  B -->|first time| B1[Click Initialize AI]
+  B1 --> B2[Check Availability]
+  B2 -->|download| B3[Download On Device Models]
+  B3 --> B4[Models Ready]
+  B -->|already| C[Click Save Current Tab]
+  B4 --> C
+  C --> D[Extract Title And Text]
+  D --> E[Summarizer API TLDR And Key Points]
+  E --> F[Prompt API Tags Intent Entities JSON]
+  F --> G[Assemble Item]
+  G --> H[Store In IndexedDB]
+  H --> I[Show Saved And Recent List]
+  J[Open Popup Or Side Panel] --> K[Enter Query]
+  K --> L[Load Items]
+  L --> M[Lexical Prefilter]
+  M --> N{Natural Query And Multiple Candidates}
+  N -->|yes| O[Prompt API Rerank]
+  N -->|no| P[Keep Lexical Order]
+  O --> Q[Render Results]
+  P --> Q
+  Q --> R[Open Link]

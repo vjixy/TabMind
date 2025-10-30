@@ -1,0 +1,37 @@
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant P as Popup / Side Panel
+  participant CS as Content Script
+  participant SA as Summarizer API (local)
+  participant LM as Prompt API (local)
+  participant DB as IndexedDB
+
+  U->>P: Click Initialize AI
+  P->>SA: availability() and create()
+  P->>LM: availability() and create()
+  Note over P,LM: Chrome may download on-device model once
+  P-->>U: Models ready
+
+  U->>P: Click Save current tab
+  P->>CS: Inject script to extract page text and meta
+  CS-->>P: {title, url, text}
+  P->>SA: summarize(text) returns TLDR and key points
+  SA-->>P: {tldr, keyPoints}
+  P->>LM: prompt(text + schema) returns tags, intent, entities
+  LM-->>P: {tags, intent, entities}
+  P->>DB: add(item)
+  DB-->>P: id
+  P-->>U: Saved and recent items
+
+  U->>P: Enter search query
+  P->>DB: getAll()
+  DB-->>P: items[]
+  P->>P: Lexical prefilter
+  alt Natural language and multiple candidates
+    P->>LM: prompt(query + candidates) re-rank
+    LM-->>P: ranked list
+    P-->>U: Render ranked results
+  else Keyword only
+    P-->>U: Render lexical results
+  end
